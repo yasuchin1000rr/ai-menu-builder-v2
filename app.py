@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.20"
+APP_VERSION = "β0.21"
 
 # =============================================
 # ページ設定
@@ -1159,19 +1159,9 @@ def main():
         if adjusted_target_vdot:
             adjusted_marathon_time = calculate_marathon_time_from_vdot(df_vdot, adjusted_target_vdot)
         
-        # 過去遡り開始の説明
+        # 過去遡り開始の説明（別途表示用）
         today = datetime.now()
         is_past_start = start_date < today
-        past_start_note = ""
-        if is_past_start:
-            past_start_note = f"""
-    <div style="border-top: 1px solid #FFB74D; margin-top: 1rem; padding-top: 1rem;">
-    <h4>📅 トレーニング開始日について</h4>
-    <p>本プログラムの仕様として、<strong>最低12週間</strong>のトレーニング期間を確保しています。</p>
-    <p>レース日までの期間が12週間に満たないため、トレーニング開始日を <strong>{start_date.strftime('%Y/%m/%d')}（過去の日付）</strong> に設定しています。</p>
-    <p>実際には本日から計画を参考にして、残りの期間でできる限りのトレーニングを行ってください。</p>
-    </div>
-"""
         
         # VDOT差チェックと警告
         if vdot_diff > 3.0 and adjusted_target_vdot:
@@ -1190,9 +1180,19 @@ def main():
     <p>この中間目標を達成した後、次のトレーニングサイクルで最終目標（VDOT {original_target_vdot} / {user_data.get('target_time', '')}）を目指すことをお勧めします。</p>
     <p><strong>段階的なアプローチ</strong>により、怪我のリスクを減らし、着実にタイムを縮めていくことができます。</p>
     </div>
-    {past_start_note}
 </div>
             """, unsafe_allow_html=True)
+            
+            # 過去遡り開始の説明を別途表示
+            if is_past_start:
+                st.markdown(f"""
+<div class="warning-box">
+    <h4>📅 トレーニング開始日について</h4>
+    <p>本プログラムの仕様として、<strong>最低12週間</strong>のトレーニング期間を確保しています。</p>
+    <p>レース日までの期間が12週間に満たないため、トレーニング開始日を <strong>{start_date.strftime('%Y/%m/%d')}（過去の日付）</strong> に設定しています。</p>
+    <p>実際には本日から計画を参考にして、残りの期間でできる限りのトレーニングを行ってください。</p>
+</div>
+                """, unsafe_allow_html=True)
         elif vdot_diff > 3.0:
             st.markdown(f"""
 <div class="warning-box">
