@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.19"
+APP_VERSION = "β0.20"
 
 # =============================================
 # ページ設定
@@ -1165,11 +1165,12 @@ def main():
         past_start_note = ""
         if is_past_start:
             past_start_note = f"""
-    <hr style="border-color: #FFB74D; margin: 1rem 0;">
+    <div style="border-top: 1px solid #FFB74D; margin-top: 1rem; padding-top: 1rem;">
     <h4>📅 トレーニング開始日について</h4>
     <p>本プログラムの仕様として、<strong>最低12週間</strong>のトレーニング期間を確保しています。</p>
     <p>レース日までの期間が12週間に満たないため、トレーニング開始日を <strong>{start_date.strftime('%Y/%m/%d')}（過去の日付）</strong> に設定しています。</p>
     <p>実際には本日から計画を参考にして、残りの期間でできる限りのトレーニングを行ってください。</p>
+    </div>
 """
         
         # VDOT差チェックと警告
@@ -1179,7 +1180,7 @@ def main():
     <h4>⚠️ 目標タイムについての重要なお知らせ</h4>
     <p>現在のVDOT（<strong>{vdot_info['vdot']}</strong>）と入力された目標VDOT（<strong>{original_target_vdot}</strong>）の差が <strong>{vdot_diff}</strong> あります。</p>
     <p>VDOT差が3.0を超える場合、1つのトレーニングサイクル（約12〜16週間）で達成するのは難しい可能性があります。</p>
-    <hr style="border-color: #FFB74D; margin: 1rem 0;">
+    <div style="border-top: 1px solid #FFB74D; margin-top: 1rem; padding-top: 1rem;">
     <h4>📊 今回のトレーニング計画について</h4>
     <p>そこで、今回のトレーニング計画では<strong>中間目標</strong>を設定します：</p>
     <ul>
@@ -1188,6 +1189,7 @@ def main():
     </ul>
     <p>この中間目標を達成した後、次のトレーニングサイクルで最終目標（VDOT {original_target_vdot} / {user_data.get('target_time', '')}）を目指すことをお勧めします。</p>
     <p><strong>段階的なアプローチ</strong>により、怪我のリスクを減らし、着実にタイムを縮めていくことができます。</p>
+    </div>
     {past_start_note}
 </div>
             """, unsafe_allow_html=True)
