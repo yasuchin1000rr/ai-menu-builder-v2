@@ -423,7 +423,8 @@ def calculate_training_paces(df_pace: pd.DataFrame, vdot: float) -> dict:
 # =============================================
 def get_gemini_model():
     """Gemini APIモデルを取得"""
-    api_key = st.session_state.get("gemini_api_key", "")
+    # Secretsから読み込み、なければセッションから取得
+    api_key = st.secrets.get("GEMINI_API_KEY", "") or st.session_state.get("gemini_api_key", "")
     if not api_key:
         return None
     
@@ -610,7 +611,7 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
             st.rerun()
     
     # メインコンテンツエリア
-    if not st.session_state.get("gemini_api_key"):
+    if not st.secrets.get("GEMINI_API_KEY", "") and not st.session_state.get("gemini_api_key"):
         st.warning("👈 サイドバーで Gemini API Key を設定してください")
         st.info("""
         **API キーの取得方法:**
