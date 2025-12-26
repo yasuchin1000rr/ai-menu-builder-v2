@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.10"
+APP_VERSION = "β0.11"
 
 # =============================================
 # ページ設定
@@ -406,14 +406,24 @@ def calculate_training_paces(df_pace: pd.DataFrame, vdot: float) -> dict:
 
 
 def calculate_phase_vdots(current_vdot: float, target_vdot: float, num_phases: int = 4) -> list:
-    """フェーズごとのVDOT目標を計算（4フェーズ固定）"""
+    """フェーズごとのVDOT目標を計算（4フェーズ固定）
+    
+    フェーズ1: 現在のVDOT（基礎構築期）
+    フェーズ2〜4: 段階的に目標VDOTに近づける
+    """
     vdot_diff = target_vdot - current_vdot
-    step = vdot_diff / num_phases
+    # フェーズ1は現在VDOT、残り3フェーズで目標に到達
+    step = vdot_diff / (num_phases - 1) if num_phases > 1 else vdot_diff
     
     phase_vdots = []
-    for i in range(1, num_phases + 1):
-        phase_vdot = round(current_vdot + step * i, 2)
-        phase_vdots.append(phase_vdot)
+    for i in range(num_phases):
+        if i == 0:
+            # フェーズ1は現在のVDOT
+            phase_vdots.append(round(current_vdot, 2))
+        else:
+            # フェーズ2以降は段階的に上昇
+            phase_vdot = round(current_vdot + step * i, 2)
+            phase_vdots.append(phase_vdot)
     
     return phase_vdots
 
@@ -529,15 +539,20 @@ def create_training_prompt(user_data: dict, vdot_info: dict, pace_info: dict, ta
     practice_races_note = ""
     if user_data.get('practice_races'):
         practice_races_note = f"""
-## ⚠️ 練習レースについて（重要）
-以下の練習レースは**Qトレーニング（ポイント練習）として扱い**、その週のポイント練習回数に含めてください：
-{user_data.get('practice_races')}
+## ⚠️ 練習レースについて（最重要 - 日付厳守）
 
-**練習レースがある週のルール：**
-- 練習レースは週のポイント練習の1回としてカウント
-- 練習レース以外のポイント練習を減らすか、軽めの内容に調整
-- レース前日は軽いジョグまたは完全休養
-- レース翌日はリカバリージョグ
+以下の練習レースは**入力された日付に正確に配置**してください。日付を変更してはいけません：
+
+```
+{user_data.get('practice_races')}
+```
+
+**練習レースのルール：**
+1. **日付は絶対に変更しないこと**（入力された日付をそのまま使用）
+2. 練習レースはQトレーニング（ポイント練習）の1回としてカウント
+3. 練習レースがある週は、他のポイント練習を減らして週{user_data.get('point_training_days', '2')}回以内に収める
+4. レース前日は軽いジョグまたは完全休養
+5. レース翌日はリカバリージョグ
 """
     
     # 開始日のフォーマット
@@ -675,22 +690,29 @@ VDOT {phase_vdots[2]} で、Mペースでのロング走やレースペースで
 ## 【最重要】週の構成ルール
 1. **週は必ず月曜日始まり〜日曜日終わり**の7日間で構成すること
 2. **全ての週で月〜日の7日間全てを出力すること**（レースウィークも含む）
-3. **日付は連続していること**（例：1/5（日）の翌週は1/6（月）から始まる）
-4. 日付は「MM/DD（曜日）」形式で記載（例：1/6（月）, 2/14（金））
+3. **日付は連続していること**（例：1/31（土）の翌日は2/1（日）であること。曜日を正確に計算すること）
+4. 日付は「MM/DD（曜日）」形式で記載。**曜日は必ず正確に計算すること**
+5. 2026年のカレンダーを正確に参照し、曜日を間違えないこと
 
 ## 【重要】練習レースの扱い
-5. **練習レースは必ず該当日に組み込むこと**（日付を確認して正確に配置）
-6. 練習レースはQトレーニング（ポイント練習）としてカウントし、その週の他のポイント練習を調整すること
-7. 練習レース前日は軽いジョグまたは休養、翌日はリカバリージョグ
+6. **練習レースは入力された日付に正確に配置すること**（日付を変更してはいけない）
+7. 練習レースはQトレーニング（ポイント練習）としてカウント
+8. 練習レース前日は軽いジョグまたは休養、翌日はリカバリージョグ
+
+## 【重要】ポイント練習（Q）のルール
+9. **ポイント練習は週{user_data.get('point_training_days', '2')}回以内**を厳守すること（練習レースを含む）
+10. ポイント練習の種類：インターバル走、テンポ走、ペース走、ロング走、練習レース
+11. **ロング走（25km以上）はポイント練習（Q）としてカウント**すること
+12. 練習レースがある週は、他のポイント練習を減らして週{user_data.get('point_training_days', '2')}回以内に収めること
 
 ## トレーニング内容ルール
-8. 各フェーズで、上記で指定したそのフェーズのVDOTに対応したペースを必ず使用すること
-9. 週間走行距離は{user_data.get('weekly_distance', '不明')}kmを目安にすること
-10. ポイント練習は週{user_data.get('point_training_days', '3')}回までにすること
-11. トレーニング開始日は{start_date_str}（月曜日）から始めること
-12. 全{training_weeks}週間分のメニューを出力すること
-13. 最終週はレースウィークとしてテーパリングを入れ、レース当日まで7日間出力すること
-14. レース日は必ず{race_date_with_day}とすること（この日付を最終日として逆算してスケジュールを組むこと）
+13. 各フェーズで、上記で指定したそのフェーズのVDOTに対応したペースを必ず使用すること
+14. **フェーズ1は現在のVDOT（{current_vdot}）**で練習すること
+15. 週間走行距離は{user_data.get('weekly_distance', '不明')}kmを目安にすること
+16. トレーニング開始日は{start_date_str}（月曜日）から始めること
+17. 全{training_weeks}週間分のメニューを出力すること
+18. 最終週はレースウィークとしてテーパリングを入れ、レース当日まで7日間出力すること
+19. レース日は必ず{race_date_with_day}とすること（この日付を最終日として逆算してスケジュールを組むこと）
 """
     
     return prompt
