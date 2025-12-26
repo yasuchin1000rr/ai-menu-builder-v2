@@ -432,7 +432,7 @@ def get_gemini_model():
     
     # Gemini Flash Lite（無料枠）を使用
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash-lite",
+        model_name="gemini-2.5-flash-lite",
         generation_config={
             "temperature": 0.7,
             "top_p": 0.95,
