@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.18"
+APP_VERSION = "β0.19"
 
 # =============================================
 # ページ設定
@@ -853,6 +853,51 @@ def create_md_download(content: str) -> bytes:
     return bom + content_bytes
 
 
+def sanitize_gemini_output(content: str) -> str:
+    """Geminiの出力からHTMLタグを除去してMarkdownのみにする"""
+    import re
+    
+    # HTMLタグを含む行を検出して除去
+    lines = content.split('\n')
+    cleaned_lines = []
+    
+    # HTMLタグのパターン
+    html_patterns = [
+        r'<hr[^>]*>',
+        r'</?h[1-6][^>]*>',
+        r'</?p[^>]*>',
+        r'</?strong[^>]*>',
+        r'</?em[^>]*>',
+        r'</?div[^>]*>',
+        r'</?span[^>]*>',
+        r'</?br[^>]*>',
+        r'</?ul[^>]*>',
+        r'</?li[^>]*>',
+        r'</?ol[^>]*>',
+        r'</?a[^>]*>',
+        r'</?table[^>]*>',
+        r'</?tr[^>]*>',
+        r'</?td[^>]*>',
+        r'</?th[^>]*>',
+    ]
+    
+    for line in lines:
+        # 行にHTMLタグが含まれているかチェック
+        has_html = False
+        for pattern in html_patterns:
+            if re.search(pattern, line, re.IGNORECASE):
+                has_html = True
+                break
+        
+        # HTMLタグを含む行は除去
+        if has_html:
+            continue
+        
+        cleaned_lines.append(line)
+    
+    return '\n'.join(cleaned_lines)
+
+
 # =============================================
 # セッション状態の初期化
 # =============================================
@@ -1240,7 +1285,8 @@ def main():
                             df_pace, training_weeks, start_date, df_vdot
                         )
                         response = model.generate_content(prompt)
-                        st.session_state.training_plan = response.text
+                        # HTMLタグを除去
+                        st.session_state.training_plan = sanitize_gemini_output(response.text)
                 except Exception as e:
                     st.error(f"APIエラーが発生しました: {str(e)}")
                     st.session_state.training_plan = None
