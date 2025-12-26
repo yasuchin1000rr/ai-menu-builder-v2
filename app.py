@@ -109,7 +109,7 @@ def load_csv_data():
     }
     
     try:
-# VDOT一覧表の読み込み
+        # VDOT一覧表の読み込み
         df_vdot_list = pd.read_csv("data/vdot_list.csv")
         verification_log["files"].append("vdot_list.csv")
         verification_log["columns"]["VDOT_list"] = list(df_vdot_list.columns)
@@ -430,9 +430,9 @@ def get_gemini_model():
     
     genai.configure(api_key=api_key)
     
-    # Gemini Flash Lite（無料枠）を使用
+    # Gemini 2.5 Flash を使用
     model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash-lite",
+        model_name="gemini-2.5-flash-preview-05-20",
         generation_config={
             "temperature": 0.7,
             "top_p": 0.95,
@@ -442,8 +442,30 @@ def get_gemini_model():
     return model
 
 
-def create_system_prompt(verification_log: dict) -> str:
+def create_system_prompt(verification_log: dict, vdot_info: dict = None, pace_info: dict = None) -> str:
     """システムプロンプトを生成"""
+    
+    # VDOT計算結果がある場合は追加
+    vdot_section = ""
+    if vdot_info and vdot_info.get("vdot"):
+        paces = pace_info.get("paces", {}) if pace_info else {}
+        vdot_section = f"""
+# 【最重要】システムが計算したVDOT情報（この値を必ず使用すること）
+- **現在のVDOT: {vdot_info['vdot']}**（この数値以外を使用することを固く禁止）
+- 計算根拠: {vdot_info.get('calculation_log', 'N/A')}
+
+## 練習ペース（この値を必ず使用すること）
+- E (Easy): {paces.get('E', {}).get('display', 'N/A')}/km
+- M (Marathon): {paces.get('M', {}).get('display', 'N/A')}/km
+- T (Threshold): {paces.get('T', {}).get('display', 'N/A')}/km
+- I (Interval): {paces.get('I', {}).get('display', 'N/A')}/km
+- R (Repetition): {paces.get('R', {}).get('display', 'N/A')}/km
+
+【絶対遵守】上記のVDOT値と練習ペースは、システムがCSVファイルから正確に計算した値です。
+あなたが独自に計算したり、異なる数値を使用することを固く禁じます。
+必ず上記の値をそのまま使用してください。
+"""
+
     return f"""# Role
 あなたは、ジャック・ダニエルズの「ランニング・フォーミュラ（VDOT理論）」を信奉し、その理論を誰よりも深く理解している、非常に慈悲深く生徒思いの「マラソン専属コーチ（優しい先生）」です。
 あなたの最大の信念は「Train where you are（今の実力で練習し、目標の実力でレースをする）」です。
@@ -453,20 +475,75 @@ def create_system_prompt(verification_log: dict) -> str:
 - **専門性:** ダニエルズ理論（E, M, T, I, Rペース）を使用し、本格的な指導を行う。
 - **配慮:** オーバートレーニングを最も嫌います。ユーザーの生活背景を考慮し、現実的なメニューを提案します。
 
-# 重要な制約
-- VDOTの計算や練習ペースの算出は、システム側で既に完了しています。
-- あなたは提供された計算結果をそのまま使用してください。
-- 独自に数値を推測したり、一般的なVDOT表の値を使用したりしないでください。
+{vdot_section}
+
+# 【最重要】厳守事項
+1. **VDOTの計算は絶対に自分で行わないでください。** システムが計算した値（上記の値）のみを使用してください。
+2. **練習ペースも絶対に自分で計算しないでください。** システムが計算した値（上記の値）のみを使用してください。
+3. **ユーザーが情報を提供したら、速やかに次のステップに進んでください。**
+4. **同じ質問を繰り返さないでください。**
+5. **「次に行ってください」「メニューを出してください」と言われたら、必ずトレーニングメニューを出力してください。**
 
 # データ検証ログ
 {json.dumps(verification_log, ensure_ascii=False, indent=2)}
 
-# 会話の進め方
-Step 1: ヒアリング - トレーニング計画に必要な情報を収集
-Step 2: 現状分析 - VDOTと実現可能性を判定（計算はシステム側で実施）
-Step 3: トレーニング計画作成 - 具体的な日別メニューを提案
+# 会話の進め方（必ずこの順序で進めること）
 
-必ず1ステップずつ対話を進め、ユーザーの回答を待ってから次のステップへ進んでください。
+## Step 1: ヒアリング
+以下の8項目を聞く。ユーザーが全て回答したらStep 2へ進む。
+1. 年齢・性別・名前
+2. 現在のベストタイム（直近1年以内）
+3. 今回の目標タイム
+4. 本番レースの日程
+5. 予定している練習レース
+6. 現在の週間走行距離
+7. 1週間の練習可能日数
+8. 過去の怪我や懸念事項
+
+## Step 2: 現状分析（ユーザーが8項目全て回答したら、このステップを実行）
+- **必ずシステムが計算したVDOT（上記の値）と練習ペースを提示**
+- 目標VDOTとの差を確認し、実現可能性を判定
+- フェーズ分けの計画を提示
+- **必ずユーザーに「この計画でよろしいですか？」と確認を取る**
+
+## Step 3: トレーニング計画の作成（ユーザーが計画に同意したら、または「メニューを出して」と言われたら実行）
+**必ず以下の形式で週間メニューを出力すること：**
+
+### 🏃‍♂️ [ユーザー名]さんのトレーニング計画（フェーズ1）
+
+**📊 設定VDOT:** [システムが計算したVDOT（上記の値）]
+
+**⏱ ペース設定:**
+- **E (Easy):** [システムが計算したEペース]/km
+- **M (Marathon):** [システムが計算したMペース]/km
+- **T (Threshold):** [システムが計算したTペース]/km
+- **I (Interval):** [システムが計算したIペース]/km
+- **R (Repetition):** [システムが計算したRペース]/km
+
+#### 📅 第1週 ([日付])
+**週テーマ:** [テーマ]
+**週間想定距離:** [距離] km
+
+| 曜日 | メニュー内容 | 想定距離 | 設定ペース | 先生からのアドバイス |
+| :--- | :--- | :--- | :--- | :--- |
+| 月 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 火 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 水 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 木 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 金 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 土 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+| 日 | [メニュー] | [距離] km | [ペース] | [アドバイス] |
+
+---
+⚠️ 先生からの注意点: [注意事項]
+✍️ 先生への報告: 「このフェーズが終わったら、全メニューをクリアできたか、走ってみてキツさはどうだったか教えてくださいね。」
+
+# 注意
+- 必ず1ステップずつ進め、ユーザーの回答を待つこと
+- ただし、ユーザーが必要な情報を全て提供したら、速やかに次のステップへ進むこと
+- 同じ内容を繰り返さないこと
+- **ユーザーが「次に行ってください」「メニューを出してください」「トレーニング計画を作って」と言ったら、必ずStep 3のトレーニング計画を出力すること**
+- **VDOTや練習ペースは、必ずシステムが計算した上記の値を使用すること。独自の値を使用してはいけない。**
 """
 
 
@@ -534,8 +611,8 @@ def main():
 読み込みファイル: {', '.join(verification_log['files'])}
 VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_range']['max']}
 確認された列名:
-  VDOT一覧表: {verification_log['columns'].get('VDOT一覧表', [])}
-  VDOT練習ペース: {verification_log['columns'].get('VDOT練習ペース', [])}
+  VDOT一覧表: {verification_log['columns'].get('VDOT_list', [])}
+  VDOT練習ペース: {verification_log['columns'].get('VDOT_pace', [])}
                 """)
         else:
             st.error("❌ データ読み込みエラー")
@@ -608,6 +685,8 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
             st.session_state.current_step = 0
             st.session_state.user_data = {}
             st.session_state.verification_done = False
+            st.session_state.calculated_vdot = None
+            st.session_state.training_paces = None
             st.rerun()
     
     # メインコンテンツエリア
@@ -633,8 +712,8 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
 - 読み込みファイル: {', '.join(st.session_state.verification_log['files'])}
 - VDOT範囲: {st.session_state.verification_log['vdot_range']['min']} 〜 {st.session_state.verification_log['vdot_range']['max']}
 - 確認された列名: 
-  - VDOT一覧表: {st.session_state.verification_log['columns'].get('VDOT一覧表', [])}
-  - VDOT練習ペース: {st.session_state.verification_log['columns'].get('VDOT練習ペース', [])}
+  - VDOT一覧表: {st.session_state.verification_log['columns'].get('VDOT_list', [])}
+  - VDOT練習ペース: {st.session_state.verification_log['columns'].get('VDOT_pace', [])}
         """)
         st.markdown('</div>', unsafe_allow_html=True)
         st.session_state.verification_done = True
@@ -658,7 +737,7 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
 
 さっそくですが、トレーニング計画を作成するにあたって、いくつか教えていただけますか？
 
-1. **年齢・性別**
+1. **年齢・性別・お名前**
 2. **現在のベストタイム**（直近1年以内のフルマラソンタイム。なければ5km/10km/ハーフのタイムでもOKです）
 3. **今回の目標タイム**
 4. **本番レースの日程**
@@ -675,6 +754,27 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
     
     # ユーザー入力
     if prompt := st.chat_input("メッセージを入力してください..."):
+        # ユーザーの入力からタイムを自動検出してVDOT計算
+        time_pattern = r'(\d{1,2}):(\d{2}):(\d{2})'
+        time_matches = re.findall(time_pattern, prompt)
+        if time_matches and not st.session_state.get("calculated_vdot"):
+            # 最初に見つかったタイムでVDOT計算
+            h, m, s = map(int, time_matches[0])
+            time_seconds = h * 3600 + m * 60 + s
+            if time_seconds > 7200:  # 2時間以上ならフルマラソンと判定
+                vdot_result = calculate_vdot_from_time(
+                    st.session_state.df_vdot,
+                    "フルマラソン",
+                    time_seconds
+                )
+                if vdot_result["vdot"]:
+                    st.session_state.calculated_vdot = vdot_result
+                    pace_result = calculate_training_paces(
+                        st.session_state.df_pace,
+                        vdot_result["vdot"]
+                    )
+                    st.session_state.training_paces = pace_result
+        
         # ユーザーメッセージを追加
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -685,18 +785,15 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
             model = get_gemini_model()
             if model:
                 # システムプロンプトと会話履歴を構築
-                system_prompt = create_system_prompt(st.session_state.verification_log)
+                system_prompt = create_system_prompt(
+                    st.session_state.verification_log,
+                    st.session_state.get("calculated_vdot"),
+                    st.session_state.get("training_paces")
+                )
                 
-                # 計算結果がある場合は追加
-                context_info = ""
-                if st.session_state.calculated_vdot:
-                    context_info += f"\n\n【システムによるVDOT計算結果】\n{st.session_state.calculated_vdot['calculation_log']}"
-                if st.session_state.training_paces and st.session_state.training_paces["success"]:
-                    context_info += f"\n\n【システムによる練習ペース計算結果】\n{st.session_state.training_paces['calculation_log']}"
-                
-               # 会話履歴を構築（Gemini API形式に変換）
+                # 会話履歴を構築（Gemini API形式に変換）
                 chat_history = []
-                for msg in st.session_state.messages:
+                for msg in st.session_state.messages[:-1]:  # 最新のユーザーメッセージは除く
                     # "assistant" を "model" に変換（Gemini APIの仕様）
                     role = "model" if msg["role"] == "assistant" else "user"
                     chat_history.append({
@@ -704,16 +801,13 @@ VDOT範囲: {verification_log['vdot_range']['min']} 〜 {verification_log['vdot_
                         "parts": [msg["content"]]
                     })
                 
-                # APIリクエスト
-                chat = model.start_chat(history=chat_history[:-1])
+                # チャットを開始
+                chat = model.start_chat(history=chat_history)
                 
-                full_prompt = prompt
-                if context_info:
-                    full_prompt = f"{prompt}\n\n---\n{context_info}"
+                # システムプロンプト + ユーザーメッセージ
+                full_prompt = f"{system_prompt}\n\n---\n\nユーザーのメッセージ:\n{prompt}"
                 
-                response = chat.send_message(
-                    f"{system_prompt}\n\n---\n\nユーザーのメッセージ:\n{full_prompt}"
-                )
+                response = chat.send_message(full_prompt)
                 
                 assistant_response = response.text
                 
