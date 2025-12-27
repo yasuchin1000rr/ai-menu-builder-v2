@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.25"
+APP_VERSION = "β0.26"
 
 # =============================================
 # ページ設定
@@ -1034,17 +1034,6 @@ def main():
     </div>
 </div>
             """, unsafe_allow_html=True)
-            
-            # 過去遡り開始の説明を別途表示
-            if is_past_start:
-                st.markdown(f"""
-<div class="warning-box">
-    <h4>📅 トレーニング開始日について</h4>
-    <p>本プログラムの仕様として、<strong>最低12週間</strong>のトレーニング期間を確保しています。</p>
-    <p>レース日までの期間が12週間に満たないため、トレーニング開始日を <strong>{start_date.strftime('%Y/%m/%d')}（過去の日付）</strong> に設定しています。</p>
-    <p>実際には本日から計画を参考にして、残りの期間でできる限りのトレーニングを行ってください。</p>
-</div>
-                """, unsafe_allow_html=True)
         elif vdot_diff > 3.0:
             st.markdown(f"""
 <div class="warning-box">
@@ -1059,6 +1048,17 @@ def main():
 <div class="success-box">
     <h4>✅ 目標設定は適切です</h4>
     <p>VDOT差 <strong>{vdot_diff}</strong> は、{training_weeks}週間のトレーニングで十分達成可能な範囲です。</p>
+</div>
+            """, unsafe_allow_html=True)
+        
+        # 過去遡り開始の説明（VDOT差に関係なく独立して表示）
+        if is_past_start:
+            st.markdown(f"""
+<div class="warning-box">
+    <h4>📅 トレーニング開始日について</h4>
+    <p>本プログラムの仕様として、<strong>最低12週間</strong>のトレーニング期間を確保しています。</p>
+    <p>レース日までの期間が12週間に満たないため、トレーニング開始日を <strong>{start_date.strftime('%Y/%m/%d')}（過去の日付）</strong> に設定しています。</p>
+    <p>実際には本日から計画を参考にして、残りの期間でできる限りのトレーニングを行ってください。</p>
 </div>
             """, unsafe_allow_html=True)
         
