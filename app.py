@@ -17,7 +17,7 @@ import io
 # アプリ設定
 # =============================================
 APP_NAME = "AIマラソンコーチ"
-APP_VERSION = "β0.26"
+APP_VERSION = "β0.27"
 
 # =============================================
 # ページ設定
@@ -1153,31 +1153,18 @@ def main():
             
             # ダウンロードボタン
             st.markdown("---")
-            col1, col2, col3 = st.columns([1, 1, 1])
             
-            with col1:
-                md_content = st.session_state.training_plan
-                md_bytes = create_md_download(md_content)
-                filename = f"training_plan_{user_data.get('name', 'user')}_{datetime.now().strftime('%Y%m%d')}.md"
-                
-                st.download_button(
-                    label="📥 MDファイルをダウンロード",
-                    data=md_bytes,
-                    file_name=filename,
-                    mime="text/markdown",
-                    use_container_width=True
-                )
+            md_content = st.session_state.training_plan
+            md_bytes = create_md_download(md_content)
+            filename = f"training_plan_{user_data.get('name', 'user')}_{datetime.now().strftime('%Y%m%d')}.md"
             
-            with col2:
-                if st.button("🔄 計画を再生成", use_container_width=True):
-                    st.session_state.training_plan = None
-                    st.rerun()
-            
-            with col3:
-                if st.button("📝 入力からやり直す", use_container_width=True):
-                    st.session_state.form_submitted = False
-                    st.session_state.training_plan = None
-                    st.rerun()
+            st.download_button(
+                label="📥 週間トレーニング計画をダウンロード",
+                data=md_bytes,
+                file_name=filename,
+                mime="text/markdown",
+                use_container_width=True
+            )
         
         # フッター
         st.markdown("---")
